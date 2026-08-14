@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wishes</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Wishes</h1>
+    <p class="tag">Who wants what</p>
+    <span id="syncStatus" class="sync-status">Connecting…</span>
+  </header>
+
+  <form id="addForm" class="add-form">
+    <input type="text" id="personInput" placeholder="Who (e.g. Loey)" autocomplete="off" required>
+    <input type="text" id="itemInput" placeholder="What they want (e.g. Ooala)" autocomplete="off" required>
+    <button type="submit">Add</button>
+  </form>
+
+  <div id="board" class="board"></div>
+  <div id="emptyMsg" class="empty" style="display:none;">No wishes yet. Add the first one above.</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
