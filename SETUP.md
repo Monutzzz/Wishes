@@ -102,6 +102,36 @@ with check (true);
 alter publication supabase_realtime add table restricted_identities;
 ```
 
+**For a persistent people list (so nobody disappears once their wishlist is empty) and a "hide from anyone" surprise mode**, run this too:
+
+```sql
+create table people (
+  name text primary key,
+  permanent boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table people enable row level security;
+
+create policy "Allow all access"
+on people
+for all
+using (true)
+with check (true);
+
+alter publication supabase_realtime add table people;
+
+-- Seed Ramon and Loey as permanent, un-removable people
+insert into people (name, permanent) values ('Ramon', true), ('Loey', true)
+on conflict (name) do update set permanent = true;
+
+-- Let surprise items be hidden from anyone, not just the recipient
+alter table wishlist_items add column if not exists hidden_from text;
+
+-- Carry over any existing surprise-marked items so they keep working
+update wishlist_items set hidden_from = person where surprise = true and hidden_from is null;
+```
+
 Then in `config.js`, replace `ADMIN_PIN`'s value (`'CHANGE_ME'`) with a PIN you and Loey will remember. **Heads up:** this PIN lives in plain text in the site's code — it's a soft gate to stop casual/accidental changes, not real security. Don't rely on it to keep something from a person determined to look at the page source.
 
 Then replace `index.html`, `style.css`, `app.js`, and `config.js` in your GitHub repo with the latest versions and commit; Netlify redeploys automatically.
@@ -111,6 +141,8 @@ Then replace `index.html`, `style.css`, `app.js`, and `config.js` in your GitHub
 - **"Skip for now"** — the identity prompt now has a low-commitment out for anyone who just wants to look without picking a name. It'll ask again next visit rather than forcing a permanent choice.
 - **Surprise is now front-and-center** — no longer buried under "Add details." It's a highlighted checkbox right under the main add row, and it defaults itself sensibly: checked when you're adding for someone else, unchecked when you're adding to your own list.
 - **Admin PIN + Manage people (⚙ in the header)** — enter the shared PIN to open a checklist of everyone who's ever appeared on the board. Uncheck someone and they disappear from the "who are you" picker entirely (including blocking them from typing their own name in) — while staying completely normal as a gift recipient. Check them back on any time. Want it to just be a tool for you and Loey? Uncheck everyone else; they'll all still show up as people you're shopping for.
+- **People persist even with an empty list.** Ramon and Loey are permanent and can never be removed. Anyone else — Ryan, Nina, Mom, Tata — automatically joins the list the first time they're added anywhere, and keeps their card on the board (showing "No open wishes right now") even after every item for them is checked off. The Manage panel now has a "+ Add person" box to pre-register someone before they have any items, and a × to remove someone from the roster entirely if you don't want them showing up anymore (existing items for them are untouched — they just won't get a standing card once those items are gone).
+- **Surprise can now hide from anyone, not just the recipient.** The checkbox now reveals a "Hide it from:" dropdown, defaulting to whoever the item is for but changeable to any other person. This covers cases like your mom adding cologne for you but hiding it specifically from Loey — the recipient (you) can still see it normally; only the chosen person is blind to it. Note: this hides from one chosen person at a time, not a group — say if that's ever a limit you hit.
 
 ---
 

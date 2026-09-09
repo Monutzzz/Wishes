@@ -39,10 +39,16 @@
         <button type="submit">Add</button>
       </div>
 
-      <label class="check-row surprise-row">
-        <input type="checkbox" id="surpriseInput">
-        <span id="surpriseLabel">Keep this a surprise from them</span>
-      </label>
+      <div class="surprise-row">
+        <label class="check-row" style="margin-bottom:0;">
+          <input type="checkbox" id="surpriseInput">
+          <span id="surpriseLabel">Keep this a surprise</span>
+        </label>
+        <div id="hideFromRow" style="display:none; margin-top:0.6rem;">
+          <label for="hideFromSelect" style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Hide it from:</label>
+          <select id="hideFromSelect"></select>
+        </div>
+      </div>
 
       <button type="button" id="toggleDetails" class="link-btn">+ Add details (note, occasion, priority)</button>
 
@@ -124,9 +130,13 @@
 <div id="manageModal" class="modal-backdrop" style="display:none;">
   <div class="modal">
     <h2>Manage people</h2>
-    <p>Uncheck someone to remove them from the "who are you" list. They're still fully usable as a gift recipient either way — this only controls who can pick themselves as a viewer.</p>
+    <p>Uncheck someone to remove them from the "who are you" list — they're still fully usable as a gift recipient either way. The × removes them from the list entirely (any existing items stay, but they won't show up as a dropdown option or a standing card until added again). Permanent people can't be removed.</p>
     <div id="managePeopleList" class="manage-list"></div>
     <p id="manageEmptyMsg" class="manage-empty" style="display:none;">Nobody's been added to Wishes yet.</p>
+    <div class="row">
+      <input type="text" id="manageAddPersonInput" placeholder="Add someone new" autocomplete="off">
+      <button type="button" id="manageAddPersonBtn">Add</button>
+    </div>
     <button type="button" id="manageCloseBtn" class="link-btn">Done</button>
   </div>
 </div>

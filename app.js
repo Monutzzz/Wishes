@@ -1,6 +1,7 @@
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let items = [];
+let knownPeople = []; // [{name, permanent}]
 let restrictedPeople = new Set();
 let identity = localStorage.getItem('wishes_identity'); // person name, '__all__', or null
 let occasionFilter = 'all';
@@ -21,6 +22,8 @@ const occasionNewInput = document.getElementById('occasionNewInput');
 const priorityInput = document.getElementById('priorityInput');
 const surpriseInput = document.getElementById('surpriseInput');
 const surpriseLabel = document.getElementById('surpriseLabel');
+const hideFromRow = document.getElementById('hideFromRow');
+const hideFromSelect = document.getElementById('hideFromSelect');
 const occasionFilterRow = document.getElementById('occasionFilterRow');
 const occasionFilterSelect = document.getElementById('occasionFilter');
 
@@ -49,6 +52,8 @@ const manageModal = document.getElementById('manageModal');
 const managePeopleList = document.getElementById('managePeopleList');
 const manageEmptyMsg = document.getElementById('manageEmptyMsg');
 const manageCloseBtn = document.getElementById('manageCloseBtn');
+const manageAddPersonInput = document.getElementById('manageAddPersonInput');
+const manageAddPersonBtn = document.getElementById('manageAddPersonBtn');
 
 // --- helpers ---
 function checkIconSVG(){
@@ -63,13 +68,14 @@ function isUrl(s){
   return /^https?:\/\//i.test((s||'').trim());
 }
 function isHiddenFromMe(item){
-  return !!(item.surprise && identity && identity !== '__all__' && item.person === identity);
+  return !!(item.hidden_from && identity && identity !== '__all__' && item.hidden_from === identity);
 }
 function isOwnItem(item){
   return !!(identity && identity !== '__all__' && item.person === identity);
 }
 function distinctPeople(){
-  const set = new Set(items.map(i=>i.person));
+  const set = new Set(knownPeople.map(p=>p.name));
+  items.forEach(i=>set.add(i.person));
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
 function distinctOccasions(){
@@ -130,6 +136,7 @@ identityNewBtn.addEventListener('click', ()=>{
     alert(`"${v}" isn't set up as a viewer on this list right now. Ask a family admin if that should change.`);
     return;
   }
+  registerPerson(v);
   setIdentity(v);
 });
 identityShowAllBtn.addEventListener('click', ()=>setIdentity('__all__'));
@@ -177,20 +184,49 @@ function renderManageList(){
   manageEmptyMsg.style.display = people.length === 0 ? 'block' : 'none';
 
   people.forEach(p=>{
-    const label = document.createElement('label');
-    label.className = 'check-row';
+    const known = knownPeople.find(k=>k.name===p);
+    const isPermanent = !!(known && known.permanent);
     const isAllowed = !restrictedPeople.has(p);
-    label.innerHTML = `<input type="checkbox" ${isAllowed ? 'checked' : ''}><span>${escapeHtml(p)}</span>`;
-    label.querySelector('input').addEventListener('change', (e)=>{
+
+    const row = document.createElement('div');
+    row.className = 'manage-row';
+    row.innerHTML = `
+      <label class="check-row">
+        <input type="checkbox" ${isAllowed ? 'checked' : ''}>
+        <span>${escapeHtml(p)}</span>
+      </label>
+      ${isPermanent
+        ? '<span class="permanent-badge">Permanent</span>'
+        : '<button type="button" class="manage-remove" aria-label="Remove person">&times;</button>'}
+    `;
+    row.querySelector('input').addEventListener('change', (e)=>{
       if(e.target.checked){
         allowIdentity(p);
       } else {
         restrictIdentity(p);
       }
     });
-    managePeopleList.appendChild(label);
+    const removeBtn = row.querySelector('.manage-remove');
+    if(removeBtn){
+      removeBtn.addEventListener('click', ()=>{
+        if(confirm(`Remove ${p} from the people list? Existing items for them stay, but they'll stop showing as a dropdown option or standing card once those are gone.`)){
+          removePerson(p);
+        }
+      });
+    }
+    managePeopleList.appendChild(row);
   });
 }
+
+manageAddPersonBtn.addEventListener('click', ()=>{
+  const v = manageAddPersonInput.value.trim();
+  if(!v) return;
+  registerPerson(v);
+  manageAddPersonInput.value = '';
+});
+manageAddPersonInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); manageAddPersonBtn.click(); }
+});
 
 async function restrictIdentity(person){
   const { error } = await db.from('restricted_identities').insert([{ person }]);
@@ -198,6 +234,16 @@ async function restrictIdentity(person){
 }
 async function allowIdentity(person){
   const { error } = await db.from('restricted_identities').delete().eq('person', person);
+  if(error) setSyncStatus('error');
+}
+async function registerPerson(name){
+  if(!name) return;
+  if(knownPeople.some(p=>p.name===name)) return;
+  const { error } = await db.from('people').insert([{ name, permanent: false }]);
+  if(error) setSyncStatus('error');
+}
+async function removePerson(name){
+  const { error } = await db.from('people').delete().eq('name', name);
   if(error) setSyncStatus('error');
 }
 
@@ -246,15 +292,40 @@ function currentPersonValue(){
   return personSelect.value;
 }
 function updateSurpriseLabel(){
-  const p = currentPersonValue();
-  surpriseLabel.textContent = p ? `Keep this a surprise from ${p}` : 'Keep this a surprise from them';
+  // Label stays static now; the specific target is chosen in the hide-from selector.
 }
 function updateSurpriseDefault(){
   const p = currentPersonValue();
   if(!p) return;
   // Default ON when adding for someone else; default OFF for your own list (hiding from yourself makes no sense)
   surpriseInput.checked = (p !== identity);
+  syncHideFromVisibility();
 }
+function populateHideFromSelect(){
+  const people = distinctPeople();
+  const prev = hideFromSelect.value;
+  hideFromSelect.innerHTML = '';
+  people.forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    hideFromSelect.appendChild(opt);
+  });
+  if(prev && people.includes(prev)){
+    hideFromSelect.value = prev;
+  }
+}
+function syncHideFromVisibility(){
+  hideFromRow.style.display = surpriseInput.checked ? 'block' : 'none';
+  if(surpriseInput.checked){
+    populateHideFromSelect();
+    const p = currentPersonValue();
+    if(p && Array.from(hideFromSelect.options).some(o=>o.value===p)){
+      hideFromSelect.value = p;
+    }
+  }
+}
+surpriseInput.addEventListener('change', syncHideFromVisibility);
 
 // --- add-form: occasion select ---
 function refreshOccasionSelect(){
@@ -393,14 +464,20 @@ function renderBoard(){
     return !i.got;
   });
 
-  if(visible.length === 0){
+  const byPerson = groupByPerson(visible);
+  // Every known person gets a standing card, even with zero visible items right now
+  distinctPeople().forEach(p=>{
+    if(!byPerson[p]) byPerson[p] = [];
+  });
+
+  const names = Object.keys(byPerson);
+  if(names.length === 0){
     emptyMsg.style.display = 'block';
     return;
   }
   emptyMsg.style.display = 'none';
 
-  const byPerson = groupByPerson(visible);
-  Object.keys(byPerson).sort((a,b)=>a.localeCompare(b)).forEach(person=>{
+  names.sort((a,b)=>a.localeCompare(b)).forEach(person=>{
     const isOwnCard = identity && identity !== '__all__' && person === identity;
     const list = byPerson[person].sort((a,b)=>{
       if(!!a.priority !== !!b.priority) return a.priority ? -1 : 1;
@@ -417,11 +494,18 @@ function renderBoard(){
       <ul class="items"></ul>
     `;
     const ul = card.querySelector('ul.items');
-    list.forEach(it=> ul.appendChild(buildItemLi(it, {
-      ownItem: isOwnCard,
-      showTick: !isOwnCard,
-      confirmDelete: true
-    })));
+    if(list.length === 0){
+      const li = document.createElement('li');
+      li.className = 'item empty-item';
+      li.innerHTML = `<span class="empty-item-text">No open wishes right now</span>`;
+      ul.appendChild(li);
+    } else {
+      list.forEach(it=> ul.appendChild(buildItemLi(it, {
+        ownItem: isOwnCard,
+        showTick: !isOwnCard,
+        confirmDelete: true
+      })));
+    }
     board.appendChild(card);
   });
 }
@@ -467,6 +551,32 @@ function renderAll(){
 }
 
 // --- data ops ---
+async function loadPeople(){
+  const { data, error } = await db.from('people').select('*');
+  if(!error){
+    knownPeople = data || [];
+  }
+}
+
+function subscribePeopleRealtime(){
+  db.channel('people_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, payload=>{
+      if(payload.eventType === 'INSERT'){
+        knownPeople.push(payload.new);
+      } else if(payload.eventType === 'UPDATE'){
+        const idx = knownPeople.findIndex(p=>p.name === payload.new.name);
+        if(idx !== -1) knownPeople[idx] = payload.new;
+      } else if(payload.eventType === 'DELETE'){
+        knownPeople = knownPeople.filter(p=>p.name !== payload.old.name);
+      }
+      renderAll();
+      if(manageModal.style.display !== 'none'){
+        renderManageList();
+      }
+    })
+    .subscribe();
+}
+
 async function loadRestricted(){
   const { data, error } = await db.from('restricted_identities').select('person');
   if(!error){
@@ -561,9 +671,10 @@ addForm.addEventListener('submit', function(e){
     note: noteInput.value.trim() || null,
     occasion: currentOccasionValue() || null,
     priority: !!priorityInput.checked,
-    surprise: !!surpriseInput.checked
+    hidden_from: surpriseInput.checked ? (hideFromSelect.value || null) : null
   };
 
+  registerPerson(person);
   addItem(record);
 
   itemInput.value = '';
@@ -580,6 +691,8 @@ addForm.addEventListener('submit', function(e){
 });
 
 async function init(){
+  await loadPeople();
+  subscribePeopleRealtime();
   await loadRestricted();
   subscribeRestrictedRealtime();
   await loadItems();

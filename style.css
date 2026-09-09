@@ -444,3 +444,45 @@ li.item .undo-btn{
   font-size:0.82rem;
   margin:-0.3rem 0 0.75rem;
 }
+
+/* --- Manage people rows (with remove button) --- */
+.manage-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:0.5rem;
+  padding:0.4rem 0.3rem;
+  border-bottom:1px solid var(--line);
+}
+.manage-row:last-child{ border-bottom:none; }
+.manage-row .check-row{ margin-bottom:0; flex:1; }
+.manage-remove{
+  border:none;
+  background:none;
+  color:var(--ink-soft);
+  cursor:pointer;
+  font-size:1.1rem;
+  line-height:1;
+  padding:0.2rem 0.4rem;
+  flex:0 0 auto;
+}
+.manage-remove:hover{ color:var(--danger); }
+.permanent-badge{
+  font-size:0.7rem;
+  color:var(--teal);
+  background:var(--teal-soft);
+  padding:0.15rem 0.5rem;
+  border-radius:999px;
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+
+/* --- Empty person card --- */
+.empty-item{
+  justify-content:flex-start;
+}
+.empty-item-text{
+  font-size:0.85rem;
+  color:var(--ink-soft);
+  font-style:italic;
+}
