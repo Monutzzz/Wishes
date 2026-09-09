@@ -283,7 +283,7 @@ function currentOccasionValue(){
 toggleDetails.addEventListener('click', ()=>{
   const showing = detailsFields.style.display !== 'none';
   detailsFields.style.display = showing ? 'none' : 'block';
-  toggleDetails.textContent = showing ? '+ Add details (note, occasion, priority, surprise)' : '- Hide details';
+  toggleDetails.textContent = showing ? '+ Add details (note, occasion, priority)' : '- Hide details';
 });
 
 // --- occasion filter ---
