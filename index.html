@@ -22,8 +22,9 @@
     <p class="tag">Who wants what</p>
     <span id="syncStatus" class="sync-status">Connecting…</span>
     <div class="header-controls">
-      <button type="button" id="identityBtn" class="chip-btn">Viewing as: <span id="identityLabel">—</span></button>
+      <button type="button" id="identityBtn" class="chip-btn">Who are you?</button>
       <button type="button" id="historyBtn" class="chip-btn">History</button>
+      <button type="button" id="adminBtn" class="chip-btn" title="Manage">⚙</button>
     </div>
   </header>
 
@@ -38,7 +39,12 @@
         <button type="submit">Add</button>
       </div>
 
-      <button type="button" id="toggleDetails" class="link-btn">+ Add details (note, occasion, priority, surprise)</button>
+      <label class="check-row surprise-row">
+        <input type="checkbox" id="surpriseInput">
+        <span id="surpriseLabel">Keep this a surprise from them</span>
+      </label>
+
+      <button type="button" id="toggleDetails" class="link-btn">+ Add details (note, occasion, priority)</button>
 
       <div id="detailsFields" class="details-fields" style="display:none;">
         <input type="text" id="noteInput" placeholder="Note or link (optional)" autocomplete="off">
@@ -57,11 +63,6 @@
         <label class="check-row">
           <input type="checkbox" id="priorityInput">
           <span>⭐ This is a top want</span>
-        </label>
-
-        <label class="check-row">
-          <input type="checkbox" id="surpriseInput">
-          <span id="surpriseLabel">Keep this a surprise from them</span>
         </label>
       </div>
     </form>
@@ -93,15 +94,40 @@
 <!-- IDENTITY MODAL -->
 <div id="identityModal" class="modal-backdrop" style="display:none;">
   <div class="modal">
-    <h2>Who's looking at Wishes?</h2>
-    <p>This just keeps anything marked "surprise" hidden from the right person on this device. Pick a name, or choose to see everything.</p>
+    <h2>Who are you?</h2>
+    <p>This just keeps anything marked "surprise" hidden from you specifically on this device. Tap yourself below, or choose to see everything.</p>
     <div id="identityOptions" class="identity-options"></div>
     <div class="row">
-      <input type="text" id="identityNewInput" placeholder="Someone not listed" autocomplete="off">
-      <button type="button" id="identityNewBtn">Use this name</button>
+      <input type="text" id="identityNewInput" placeholder="Type your name" autocomplete="off">
+      <button type="button" id="identityNewBtn">That's me</button>
     </div>
     <button type="button" id="identityShowAllBtn" class="link-btn">Just show me everything</button>
     <button type="button" id="identitySkipBtn" class="link-btn">Skip for now, just let me look</button>
+  </div>
+</div>
+
+<!-- ADMIN PIN MODAL -->
+<div id="pinModal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <h2>Admin PIN</h2>
+    <p>This just keeps casual visitors from changing settings — enter the family PIN to continue.</p>
+    <div class="row">
+      <input type="password" id="pinInput" placeholder="PIN" autocomplete="off" inputmode="numeric">
+      <button type="button" id="pinSubmitBtn">Continue</button>
+    </div>
+    <p id="pinError" class="pin-error" style="display:none;">That's not the right PIN.</p>
+    <button type="button" id="pinCancelBtn" class="link-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- MANAGE PEOPLE MODAL -->
+<div id="manageModal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <h2>Manage people</h2>
+    <p>Uncheck someone to remove them from the "who are you" list. They're still fully usable as a gift recipient either way — this only controls who can pick themselves as a viewer.</p>
+    <div id="managePeopleList" class="manage-list"></div>
+    <p id="manageEmptyMsg" class="manage-empty" style="display:none;">Nobody's been added to Wishes yet.</p>
+    <button type="button" id="manageCloseBtn" class="link-btn">Done</button>
   </div>
 </div>
 

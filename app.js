@@ -1,6 +1,7 @@
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let items = [];
+let restrictedPeople = new Set();
 let identity = localStorage.getItem('wishes_identity'); // person name, '__all__', or null
 let occasionFilter = 'all';
 
@@ -24,7 +25,6 @@ const occasionFilterRow = document.getElementById('occasionFilterRow');
 const occasionFilterSelect = document.getElementById('occasionFilter');
 
 const identityBtn = document.getElementById('identityBtn');
-const identityLabel = document.getElementById('identityLabel');
 const identityModal = document.getElementById('identityModal');
 const identityOptions = document.getElementById('identityOptions');
 const identityNewInput = document.getElementById('identityNewInput');
@@ -38,6 +38,17 @@ const historyView = document.getElementById('historyView');
 const historyBoard = document.getElementById('historyBoard');
 const historyEmptyMsg = document.getElementById('historyEmptyMsg');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+const adminBtn = document.getElementById('adminBtn');
+const pinModal = document.getElementById('pinModal');
+const pinInput = document.getElementById('pinInput');
+const pinSubmitBtn = document.getElementById('pinSubmitBtn');
+const pinError = document.getElementById('pinError');
+const pinCancelBtn = document.getElementById('pinCancelBtn');
+const manageModal = document.getElementById('manageModal');
+const managePeopleList = document.getElementById('managePeopleList');
+const manageEmptyMsg = document.getElementById('manageEmptyMsg');
+const manageCloseBtn = document.getElementById('manageCloseBtn');
 
 // --- helpers ---
 function checkIconSVG(){
@@ -81,19 +92,19 @@ function setSyncStatus(state){
 
 // --- identity ---
 function identityDisplayLabel(){
-  if(!identity) return '—';
-  if(identity === '__all__') return 'Everyone';
-  return identity;
+  if(!identity) return 'Who are you?';
+  if(identity === '__all__') return 'Seeing everything';
+  return `You're ${identity}`;
 }
 function refreshIdentityUI(){
-  identityLabel.textContent = identityDisplayLabel();
+  identityBtn.textContent = identityDisplayLabel();
 }
 function openIdentityModal(){
   identityOptions.innerHTML = '';
-  distinctPeople().forEach(p=>{
+  distinctPeople().filter(p=>!restrictedPeople.has(p)).forEach(p=>{
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = p;
+    b.textContent = `I'm ${p}`;
     b.addEventListener('click', ()=>setIdentity(p));
     identityOptions.appendChild(b);
   });
@@ -109,11 +120,17 @@ function setIdentity(value){
   refreshIdentityUI();
   closeIdentityModal();
   renderAll();
+  updateSurpriseDefault();
 }
 identityBtn.addEventListener('click', openIdentityModal);
 identityNewBtn.addEventListener('click', ()=>{
   const v = identityNewInput.value.trim();
-  if(v) setIdentity(v);
+  if(!v) return;
+  if(restrictedPeople.has(v)){
+    alert(`"${v}" isn't set up as a viewer on this list right now. Ask a family admin if that should change.`);
+    return;
+  }
+  setIdentity(v);
 });
 identityShowAllBtn.addEventListener('click', ()=>setIdentity('__all__'));
 document.getElementById('identitySkipBtn').addEventListener('click', closeIdentityModal);
@@ -129,7 +146,63 @@ backToMain.addEventListener('click', ()=>{
   mainView.style.display = 'block';
 });
 
+// --- admin PIN + manage people ---
+adminBtn.addEventListener('click', ()=>{
+  pinInput.value = '';
+  pinError.style.display = 'none';
+  pinModal.style.display = 'flex';
+  pinInput.focus();
+});
+pinCancelBtn.addEventListener('click', ()=>{ pinModal.style.display = 'none'; });
+pinSubmitBtn.addEventListener('click', submitPin);
+pinInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') submitPin(); });
+function submitPin(){
+  if(pinInput.value === ADMIN_PIN){
+    pinModal.style.display = 'none';
+    openManageModal();
+  } else {
+    pinError.style.display = 'block';
+  }
+}
+
+function openManageModal(){
+  renderManageList();
+  manageModal.style.display = 'flex';
+}
+manageCloseBtn.addEventListener('click', ()=>{ manageModal.style.display = 'none'; });
+
+function renderManageList(){
+  managePeopleList.innerHTML = '';
+  const people = distinctPeople();
+  manageEmptyMsg.style.display = people.length === 0 ? 'block' : 'none';
+
+  people.forEach(p=>{
+    const label = document.createElement('label');
+    label.className = 'check-row';
+    const isAllowed = !restrictedPeople.has(p);
+    label.innerHTML = `<input type="checkbox" ${isAllowed ? 'checked' : ''}><span>${escapeHtml(p)}</span>`;
+    label.querySelector('input').addEventListener('change', (e)=>{
+      if(e.target.checked){
+        allowIdentity(p);
+      } else {
+        restrictIdentity(p);
+      }
+    });
+    managePeopleList.appendChild(label);
+  });
+}
+
+async function restrictIdentity(person){
+  const { error } = await db.from('restricted_identities').insert([{ person }]);
+  if(error) setSyncStatus('error');
+}
+async function allowIdentity(person){
+  const { error } = await db.from('restricted_identities').delete().eq('person', person);
+  if(error) setSyncStatus('error');
+}
+
 // --- add-form: person select ---
+let hasSetInitialSurpriseDefault = false;
 function refreshPersonSelect(){
   const prev = personSelect.value;
   personSelect.innerHTML = '';
@@ -150,6 +223,10 @@ function refreshPersonSelect(){
     personSelect.selectedIndex = 0;
   }
   syncPersonNewVisibility();
+  if(!hasSetInitialSurpriseDefault){
+    updateSurpriseDefault();
+    hasSetInitialSurpriseDefault = true;
+  }
 }
 function syncPersonNewVisibility(){
   if(personSelect.value === '__new__' || personSelect.options.length === 0){
@@ -159,8 +236,8 @@ function syncPersonNewVisibility(){
   }
   updateSurpriseLabel();
 }
-personSelect.addEventListener('change', syncPersonNewVisibility);
-personNewInput.addEventListener('input', updateSurpriseLabel);
+personSelect.addEventListener('change', ()=>{ syncPersonNewVisibility(); updateSurpriseDefault(); });
+personNewInput.addEventListener('input', ()=>{ updateSurpriseLabel(); updateSurpriseDefault(); });
 
 function currentPersonValue(){
   if(personSelect.options.length === 0 || personSelect.value === '__new__'){
@@ -171,6 +248,12 @@ function currentPersonValue(){
 function updateSurpriseLabel(){
   const p = currentPersonValue();
   surpriseLabel.textContent = p ? `Keep this a surprise from ${p}` : 'Keep this a surprise from them';
+}
+function updateSurpriseDefault(){
+  const p = currentPersonValue();
+  if(!p) return;
+  // Default ON when adding for someone else; default OFF for your own list (hiding from yourself makes no sense)
+  surpriseInput.checked = (p !== identity);
 }
 
 // --- add-form: occasion select ---
@@ -384,6 +467,28 @@ function renderAll(){
 }
 
 // --- data ops ---
+async function loadRestricted(){
+  const { data, error } = await db.from('restricted_identities').select('person');
+  if(!error){
+    restrictedPeople = new Set((data||[]).map(r=>r.person));
+  }
+}
+
+function subscribeRestrictedRealtime(){
+  db.channel('restricted_identities_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'restricted_identities' }, payload=>{
+      if(payload.eventType === 'INSERT'){
+        restrictedPeople.add(payload.new.person);
+      } else if(payload.eventType === 'DELETE'){
+        restrictedPeople.delete(payload.old.person);
+      }
+      if(manageModal.style.display !== 'none'){
+        renderManageList();
+      }
+    })
+    .subscribe();
+}
+
 async function loadItems(){
   const { data, error } = await db.from('wishlist_items').select('*').order('created_at', { ascending: true });
   if(error){
@@ -464,7 +569,7 @@ addForm.addEventListener('submit', function(e){
   itemInput.value = '';
   noteInput.value = '';
   priorityInput.checked = false;
-  surpriseInput.checked = false;
+  updateSurpriseDefault();
   occasionSelect.value = '';
   occasionNewInput.value = '';
   occasionNewInput.style.display = 'none';
@@ -474,5 +579,10 @@ addForm.addEventListener('submit', function(e){
   itemInput.focus();
 });
 
-loadItems();
-subscribeRealtime();
+async function init(){
+  await loadRestricted();
+  subscribeRestrictedRealtime();
+  await loadItems();
+  subscribeRealtime();
+}
+init();
