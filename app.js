@@ -54,6 +54,9 @@ function isUrl(s){
 function isHiddenFromMe(item){
   return !!(item.surprise && identity && identity !== '__all__' && item.person === identity);
 }
+function isOwnItem(item){
+  return !!(identity && identity !== '__all__' && item.person === identity);
+}
 function distinctPeople(){
   const set = new Set(items.map(i=>i.person));
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
@@ -113,6 +116,7 @@ identityNewBtn.addEventListener('click', ()=>{
   if(v) setIdentity(v);
 });
 identityShowAllBtn.addEventListener('click', ()=>setIdentity('__all__'));
+document.getElementById('identitySkipBtn').addEventListener('click', closeIdentityModal);
 
 // --- history view toggle ---
 historyBtn.addEventListener('click', ()=>{
@@ -230,7 +234,8 @@ function itemMatchesOccasionFilter(item){
 function buildItemLi(it, opts){
   opts = opts || {};
   const li = document.createElement('li');
-  li.className = 'item' + (it.got ? ' got' : '');
+  // Own items never show got/claimed styling, no matter their real state
+  li.className = 'item' + (!opts.ownItem && it.got ? ' got' : '');
 
   const tickHtml = opts.showTick === false ? '' :
     `<button class="tick" aria-label="Mark as got">${checkIconSVG()}</button>`;
@@ -298,7 +303,12 @@ function groupByPerson(list){
 
 function renderBoard(){
   board.innerHTML = '';
-  const visible = items.filter(i=>!i.got && !isHiddenFromMe(i) && itemMatchesOccasionFilter(i));
+  const visible = items.filter(i=>{
+    if(isHiddenFromMe(i)) return false;
+    if(!itemMatchesOccasionFilter(i)) return false;
+    if(isOwnItem(i)) return true; // always shown to the owner, regardless of claimed/got
+    return !i.got;
+  });
 
   if(visible.length === 0){
     emptyMsg.style.display = 'block';
@@ -308,6 +318,7 @@ function renderBoard(){
 
   const byPerson = groupByPerson(visible);
   Object.keys(byPerson).sort((a,b)=>a.localeCompare(b)).forEach(person=>{
+    const isOwnCard = identity && identity !== '__all__' && person === identity;
     const list = byPerson[person].sort((a,b)=>{
       if(!!a.priority !== !!b.priority) return a.priority ? -1 : 1;
       return new Date(a.created_at) - new Date(b.created_at);
@@ -323,14 +334,19 @@ function renderBoard(){
       <ul class="items"></ul>
     `;
     const ul = card.querySelector('ul.items');
-    list.forEach(it=> ul.appendChild(buildItemLi(it, {})));
+    list.forEach(it=> ul.appendChild(buildItemLi(it, {
+      ownItem: isOwnCard,
+      showTick: !isOwnCard,
+      confirmDelete: true
+    })));
     board.appendChild(card);
   });
 }
 
 function renderHistory(){
   historyBoard.innerHTML = '';
-  const visible = items.filter(i=>i.got && !isHiddenFromMe(i));
+  // Never surface an owner's own items here, even after they're claimed/gotten
+  const visible = items.filter(i=>i.got && !isHiddenFromMe(i) && !isOwnItem(i));
 
   if(visible.length === 0){
     historyEmptyMsg.style.display = 'block';
@@ -418,7 +434,7 @@ async function deleteItem(id){
 }
 
 async function clearHistory(){
-  const idsToClear = items.filter(i=>i.got && !isHiddenFromMe(i)).map(i=>i.id);
+  const idsToClear = items.filter(i=>i.got && !isHiddenFromMe(i) && !isOwnItem(i)).map(i=>i.id);
   if(idsToClear.length === 0) return;
   if(!confirm(`Permanently delete ${idsToClear.length} item(s) from history? This can't be undone.`)) return;
   const { error } = await db.from('wishlist_items').delete().in('id', idsToClear);
