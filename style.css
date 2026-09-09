@@ -486,3 +486,17 @@ li.item .undo-btn{
   color:var(--ink-soft);
   font-style:italic;
 }
+
+/* --- Hide-from checklist --- */
+.hide-from-list{
+  display:flex;
+  flex-direction:column;
+  gap:0.15rem;
+  max-height:180px;
+  overflow-y:auto;
+  padding-left:0.2rem;
+}
+.hide-from-list .check-row{
+  font-size:0.88rem;
+  margin-bottom:0.2rem;
+}

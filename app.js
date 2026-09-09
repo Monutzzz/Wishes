@@ -23,7 +23,8 @@ const priorityInput = document.getElementById('priorityInput');
 const surpriseInput = document.getElementById('surpriseInput');
 const surpriseLabel = document.getElementById('surpriseLabel');
 const hideFromRow = document.getElementById('hideFromRow');
-const hideFromSelect = document.getElementById('hideFromSelect');
+const hideFromEveryone = document.getElementById('hideFromEveryone');
+const hideFromPeopleList = document.getElementById('hideFromPeopleList');
 const occasionFilterRow = document.getElementById('occasionFilterRow');
 const occasionFilterSelect = document.getElementById('occasionFilter');
 
@@ -68,7 +69,8 @@ function isUrl(s){
   return /^https?:\/\//i.test((s||'').trim());
 }
 function isHiddenFromMe(item){
-  return !!(item.hidden_from && identity && identity !== '__all__' && item.hidden_from === identity);
+  if(!item.hidden_from_list || !identity || identity === '__all__') return false;
+  return item.hidden_from_list.includes('__everyone__') || item.hidden_from_list.includes(identity);
 }
 function isOwnItem(item){
   return !!(identity && identity !== '__all__' && item.person === identity);
@@ -126,6 +128,7 @@ function setIdentity(value){
   refreshIdentityUI();
   closeIdentityModal();
   renderAll();
+  updateItemPlaceholder();
   updateSurpriseDefault();
 }
 identityBtn.addEventListener('click', openIdentityModal);
@@ -281,9 +284,10 @@ function syncPersonNewVisibility(){
     personNewInput.style.display = 'none';
   }
   updateSurpriseLabel();
+  updateItemPlaceholder();
 }
 personSelect.addEventListener('change', ()=>{ syncPersonNewVisibility(); updateSurpriseDefault(); });
-personNewInput.addEventListener('input', ()=>{ updateSurpriseLabel(); updateSurpriseDefault(); });
+personNewInput.addEventListener('input', ()=>{ updateSurpriseLabel(); updateItemPlaceholder(); updateSurpriseDefault(); });
 
 function currentPersonValue(){
   if(personSelect.options.length === 0 || personSelect.value === '__new__'){
@@ -292,7 +296,13 @@ function currentPersonValue(){
   return personSelect.value;
 }
 function updateSurpriseLabel(){
-  // Label stays static now; the specific target is chosen in the hide-from selector.
+  // Label stays static now; the specific target(s) are chosen in the hide-from checklist.
+}
+function updateItemPlaceholder(){
+  const p = currentPersonValue();
+  itemInput.placeholder = (p && identity && p === identity)
+    ? 'What would you like?'
+    : 'What they want (e.g. Ooala)';
 }
 function updateSurpriseDefault(){
   const p = currentPersonValue();
@@ -301,28 +311,30 @@ function updateSurpriseDefault(){
   surpriseInput.checked = (p !== identity);
   syncHideFromVisibility();
 }
-function populateHideFromSelect(){
+function populateHideFromList(){
   const people = distinctPeople();
-  const prev = hideFromSelect.value;
-  hideFromSelect.innerHTML = '';
+  const recipient = currentPersonValue();
+  const prevChecked = new Set(
+    Array.from(hideFromPeopleList.querySelectorAll('input:checked')).map(i=>i.value)
+  );
+  hideFromPeopleList.innerHTML = '';
   people.forEach(p=>{
-    const opt = document.createElement('option');
-    opt.value = p;
-    opt.textContent = p;
-    hideFromSelect.appendChild(opt);
+    const label = document.createElement('label');
+    label.className = 'check-row';
+    const shouldCheck = prevChecked.size > 0 ? prevChecked.has(p) : (p === recipient);
+    label.innerHTML = `<input type="checkbox" value="${escapeHtml(p)}" ${shouldCheck ? 'checked' : ''}><span>${escapeHtml(p)}</span>`;
+    hideFromPeopleList.appendChild(label);
   });
-  if(prev && people.includes(prev)){
-    hideFromSelect.value = prev;
-  }
 }
+function syncHideFromEveryoneToggle(){
+  hideFromPeopleList.style.display = hideFromEveryone.checked ? 'none' : 'flex';
+}
+hideFromEveryone.addEventListener('change', syncHideFromEveryoneToggle);
 function syncHideFromVisibility(){
   hideFromRow.style.display = surpriseInput.checked ? 'block' : 'none';
   if(surpriseInput.checked){
-    populateHideFromSelect();
-    const p = currentPersonValue();
-    if(p && Array.from(hideFromSelect.options).some(o=>o.value===p)){
-      hideFromSelect.value = p;
-    }
+    populateHideFromList();
+    syncHideFromEveryoneToggle();
   }
 }
 surpriseInput.addEventListener('change', syncHideFromVisibility);
@@ -664,6 +676,19 @@ addForm.addEventListener('submit', function(e){
   const item = itemInput.value.trim();
   if(!person || !item) return;
 
+  let hiddenFromList = null;
+  if(surpriseInput.checked){
+    if(hideFromEveryone.checked){
+      hiddenFromList = ['__everyone__'];
+    } else {
+      hiddenFromList = Array.from(hideFromPeopleList.querySelectorAll('input:checked')).map(i=>i.value);
+      if(hiddenFromList.length === 0){
+        alert('Pick at least one person to hide this from, or check "Everyone".');
+        return;
+      }
+    }
+  }
+
   const record = {
     person,
     item,
@@ -671,7 +696,7 @@ addForm.addEventListener('submit', function(e){
     note: noteInput.value.trim() || null,
     occasion: currentOccasionValue() || null,
     priority: !!priorityInput.checked,
-    hidden_from: surpriseInput.checked ? (hideFromSelect.value || null) : null
+    hidden_from_list: hiddenFromList
   };
 
   registerPerson(person);
@@ -680,6 +705,7 @@ addForm.addEventListener('submit', function(e){
   itemInput.value = '';
   noteInput.value = '';
   priorityInput.checked = false;
+  hideFromEveryone.checked = false;
   updateSurpriseDefault();
   occasionSelect.value = '';
   occasionNewInput.value = '';

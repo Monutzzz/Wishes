@@ -45,8 +45,12 @@
           <span id="surpriseLabel">Keep this a surprise</span>
         </label>
         <div id="hideFromRow" style="display:none; margin-top:0.6rem;">
-          <label for="hideFromSelect" style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Hide it from:</label>
-          <select id="hideFromSelect"></select>
+          <label style="font-size:0.82rem; display:block; margin-bottom:0.4rem;">Hide it from:</label>
+          <label class="check-row" style="margin-bottom:0.4rem;">
+            <input type="checkbox" id="hideFromEveryone">
+            <span>Everyone</span>
+          </label>
+          <div id="hideFromPeopleList" class="hide-from-list"></div>
         </div>
       </div>
 
