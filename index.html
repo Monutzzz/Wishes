@@ -21,17 +21,87 @@
     <h1>Wishes</h1>
     <p class="tag">Who wants what</p>
     <span id="syncStatus" class="sync-status">Connecting…</span>
+    <div class="header-controls">
+      <button type="button" id="identityBtn" class="chip-btn">Viewing as: <span id="identityLabel">—</span></button>
+      <button type="button" id="historyBtn" class="chip-btn">History</button>
+    </div>
   </header>
 
-  <form id="addForm" class="add-form">
-    <input type="text" id="personInput" placeholder="Who (e.g. Loey)" autocomplete="off" required>
-    <input type="text" id="itemInput" placeholder="What they want (e.g. Ooala)" autocomplete="off" required>
-    <button type="submit">Add</button>
-  </form>
+  <!-- MAIN VIEW -->
+  <div id="mainView">
 
-  <div id="board" class="board"></div>
-  <div id="emptyMsg" class="empty" style="display:none;">No wishes yet. Add the first one above.</div>
+    <form id="addForm" class="add-form">
+      <div class="row">
+        <select id="personSelect"></select>
+        <input type="text" id="personNewInput" placeholder="Person's name" autocomplete="off" style="display:none;">
+        <input type="text" id="itemInput" placeholder="What they want (e.g. Ooala)" autocomplete="off" required>
+        <button type="submit">Add</button>
+      </div>
 
+      <button type="button" id="toggleDetails" class="link-btn">+ Add details (note, occasion, priority, surprise)</button>
+
+      <div id="detailsFields" class="details-fields" style="display:none;">
+        <input type="text" id="noteInput" placeholder="Note or link (optional)" autocomplete="off">
+
+        <div class="row">
+          <select id="occasionSelect">
+            <option value="">No occasion</option>
+            <option value="Christmas">Christmas</option>
+            <option value="Birthday">Birthday</option>
+            <option value="Just because">Just because</option>
+            <option value="__new__">+ Custom…</option>
+          </select>
+          <input type="text" id="occasionNewInput" placeholder="Occasion name" autocomplete="off" style="display:none;">
+        </div>
+
+        <label class="check-row">
+          <input type="checkbox" id="priorityInput">
+          <span>⭐ This is a top want</span>
+        </label>
+
+        <label class="check-row">
+          <input type="checkbox" id="surpriseInput">
+          <span id="surpriseLabel">Keep this a surprise from them</span>
+        </label>
+      </div>
+    </form>
+
+    <div id="occasionFilterRow" class="filter-row" style="display:none;">
+      <label for="occasionFilter">Occasion:</label>
+      <select id="occasionFilter">
+        <option value="all">All</option>
+        <option value="__none__">No occasion</option>
+      </select>
+    </div>
+
+    <div id="board" class="board"></div>
+    <div id="emptyMsg" class="empty" style="display:none;">No wishes yet. Add the first one above.</div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="historyView" style="display:none;">
+    <div class="history-head">
+      <button type="button" id="backToMain" class="link-btn">&larr; Back to Wishes</button>
+      <button type="button" id="clearHistoryBtn" class="danger-btn">Clear history</button>
+    </div>
+    <div id="historyBoard" class="board"></div>
+    <div id="historyEmptyMsg" class="empty" style="display:none;">Nothing here yet. Items you mark as gotten will show up here.</div>
+  </div>
+
+</div>
+
+<!-- IDENTITY MODAL -->
+<div id="identityModal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <h2>Who's looking at Wishes?</h2>
+    <p>This just keeps anything marked "surprise" hidden from the right person on this device. Pick a name, or choose to see everything.</p>
+    <div id="identityOptions" class="identity-options"></div>
+    <div class="row">
+      <input type="text" id="identityNewInput" placeholder="Someone not listed" autocomplete="off">
+      <button type="button" id="identityNewBtn">Use this name</button>
+    </div>
+    <button type="button" id="identityShowAllBtn" class="link-btn">Just show me everything</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
