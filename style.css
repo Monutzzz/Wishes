@@ -57,8 +57,8 @@ header .tag{
 }
 form.add-form{
   display:flex;
+  flex-direction:column;
   gap:0.6rem;
-  flex-wrap:wrap;
   background:var(--card);
   border:1px solid var(--line);
   border-radius:14px;
@@ -488,6 +488,11 @@ li.item .undo-btn{
 }
 
 /* --- Hide-from checklist --- */
+.hide-from-everyone{
+  padding-bottom:0.5rem;
+  margin-bottom:0.5rem;
+  border-bottom:1px solid var(--gold);
+}
 .hide-from-list{
   display:flex;
   flex-direction:column;
@@ -499,4 +504,8 @@ li.item .undo-btn{
 .hide-from-list .check-row{
   font-size:0.88rem;
   margin-bottom:0.2rem;
+  justify-content:flex-start;
+}
+.hide-from-list .check-row span{
+  flex:0 1 auto;
 }
